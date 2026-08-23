@@ -514,6 +514,38 @@ describe.serial("LibraryDB", () => {
       })
     })
 
+    describe("incrementRetrievalCount", () => {
+      test("increments retrieval_count independently of q_visits", () => {
+        makeExperience("exp-rc1")
+        // Reward-path increment raises q_visits but must NOT raise retrieval_count.
+        LibraryDB.Experience.updateQValues("exp-rc1", 0.5, { outcome: 1.0 })
+
+        LibraryDB.Experience.incrementRetrievalCount(["exp-rc1"])
+        LibraryDB.Experience.incrementRetrievalCount(["exp-rc1"])
+
+        const row = LibraryDB.Experience.get("exp-rc1")
+        expect(row!.retrieval_count).toBe(2)
+        // q_visits stays at the reward-path count (1), proving the two counters
+        // are independent — the core of the BUG-003 fix.
+        expect(row!.q_visits).toBe(1)
+      })
+
+      test("increments a batch and reports the number of rows touched", () => {
+        makeExperience("exp-rc-a")
+        makeExperience("exp-rc-b")
+
+        const changed = LibraryDB.Experience.incrementRetrievalCount(["exp-rc-a", "exp-rc-b", "does-not-exist"])
+        expect(changed).toBe(2)
+
+        expect(LibraryDB.Experience.get("exp-rc-a")!.retrieval_count).toBe(1)
+        expect(LibraryDB.Experience.get("exp-rc-b")!.retrieval_count).toBe(1)
+      })
+
+      test("is a no-op for an empty id list", () => {
+        expect(LibraryDB.Experience.incrementRetrievalCount([])).toBe(0)
+      })
+    })
+
     describe("page", () => {
       const defaultWeights = {
         outcome: 0.35,

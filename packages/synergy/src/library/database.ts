@@ -406,6 +406,11 @@ function initialize(conn: Database) {
     }
   }
 
+  // retrieval_count: selection count for UCB1 exploration (BUG-003). Distinct
+  // from q_visits, which counts reward updates (Q-learning credit assignment).
+  // An experience retrieved many times but not yet rewarded had q_visits = 0
+  // and so received a perpetually maximal exploration bonus; retrieval_count
+  // tracks actual selections so the UCB1 term decays as an arm is pulled.
   conn.exec(`
     CREATE TABLE IF NOT EXISTS experience (
       id                       TEXT PRIMARY KEY,
@@ -424,6 +429,7 @@ function initialize(conn: Database) {
       q_history                TEXT NOT NULL DEFAULT '[]',
       retrieved_experience_ids TEXT NOT NULL DEFAULT '[]',
       reward_status            TEXT NOT NULL DEFAULT 'evaluated',
+      retrieval_count          INTEGER NOT NULL DEFAULT 0,
       turns_remaining          INTEGER,
       created_at               INTEGER NOT NULL,
       updated_at               INTEGER NOT NULL
@@ -897,6 +903,7 @@ export namespace LibraryDB {
       q_updated_at: number | null
       q_history: string
       retrieved_experience_ids: string
+      retrieval_count: number
       created_at: number
       updated_at: number
       reward_status: string
@@ -1266,6 +1273,26 @@ export namespace LibraryDB {
       return conn.prepare("SELECT * FROM experience WHERE id = ?1").get(id) as Row
     }
 
+    /**
+     * Increment the retrieval (selection) count for a batch of experiences.
+     * This is the UCB1 "arm pull" counter (BUG-003), distinct from q_visits
+     * (which counts reward updates). Called when experiences are selected for
+     * injection into a session so the exploration bonus decays with selection.
+     */
+    export function incrementRetrievalCount(ids: string[]): number {
+      if (ids.length === 0) return 0
+      const conn = open()
+      const stmt = conn.prepare("UPDATE experience SET retrieval_count = retrieval_count + 1, updated_at = ?1 WHERE id = ?2")
+      let changed = 0
+      const now = Date.now()
+      for (const id of ids) {
+        const res = stmt.run(now, id)
+        if (res.changes > 0) changed++
+      }
+      if (changed > 0) log.info("experience.incrementRetrievalCount", { requested: ids.length, updated: changed })
+      return changed
+    }
+
     export function listPendingRewards(sessionID: string): Row[] {
       const conn = open()
       return conn
@@ -1345,8 +1372,8 @@ export namespace LibraryDB {
         .prepare(
           `INSERT INTO experience (id, session_id, scope_id, intent, intent_embedding_model,
            script_embedding_model, source_provider_id, source_model_id, reward, rewards, q_values, q_visits,
-           q_updated_at, q_history, retrieved_experience_ids, reward_status, created_at, updated_at)
-         VALUES (?1, ?2, ?3, '', NULL, NULL, ?4, ?5, NULL, '{}', '{}', 0, NULL, '[]', '[]', 'encoding_failed', ?6, ?7)
+           q_updated_at, q_history, retrieved_experience_ids, reward_status, retrieval_count, created_at, updated_at)
+         VALUES (?1, ?2, ?3, '', NULL, NULL, ?4, ?5, NULL, '{}', '{}', 0, NULL, '[]', '[]', 'encoding_failed', 0, ?6, ?7)
          ON CONFLICT(id) DO UPDATE SET
            source_provider_id = excluded.source_provider_id,
            source_model_id = excluded.source_model_id,
@@ -1390,8 +1417,8 @@ export namespace LibraryDB {
         .prepare(
           `INSERT INTO experience (id, session_id, scope_id, intent, intent_embedding_model,
            script_embedding_model, source_provider_id, source_model_id, reward, rewards, q_values, q_visits,
-           q_updated_at, q_history, retrieved_experience_ids, reward_status, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, '{}', ?9, 0, NULL, '[]', ?10, 'pending', ?11, ?12)
+           q_updated_at, q_history, retrieved_experience_ids, reward_status, retrieval_count, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, '{}', ?9, 0, NULL, '[]', ?10, 'pending', 0, ?11, ?12)
          ON CONFLICT(id) DO UPDATE SET
            intent = excluded.intent,
            intent_embedding_model = excluded.intent_embedding_model,

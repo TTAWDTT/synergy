@@ -31,6 +31,7 @@ export namespace ExperienceRecall {
     qValue: number
     qValues: Record<string, number>
     qVisits: number
+    retrievalCount: number
     turnsRemaining: number | null
     score: number
     script: string | null
@@ -44,6 +45,12 @@ export namespace ExperienceRecall {
 
   export function trackRetrieval(sessionID: string, experienceIDs: string[]) {
     pendingRetrievals.set(sessionID, experienceIDs)
+    // These experiences were selected for injection, so count them as arm pulls
+    // for UCB1 exploration (BUG-003). This is intentionally separate from the
+    // reward-path q_visits increment: selection and credit assignment are
+    // distinct events, and conflating them left never-rewarded experiences with
+    // a perpetually maximal exploration bonus.
+    LibraryDB.Experience.incrementRetrievalCount(experienceIDs)
     setTimeout(
       () => {
         pendingRetrievals.delete(sessionID)
@@ -125,13 +132,24 @@ export namespace ExperienceRecall {
     const zSim = zScoreNormalize(similarities)
     const zQ = zScoreNormalize(qScalars)
 
-    const totalVisits = candidates.reduce((sum, c) => sum + c.row.q_visits, 0)
-    const lnN = totalVisits > 0 ? Math.log(totalVisits) : 1
+    // UCB1 exploration term (BUG-003). N and n must count *selections*
+    // (retrieval_count), not reward updates (q_visits). An experience retrieved
+    // many times but not yet rewarded had q_visits = 0, so the old formula gave
+    // it a perpetually maximal exploration bonus (n floored to 1, lnN >= 1) and
+    // it crowded out better-evidenced arms forever. Using retrieval_count makes
+    // the bonus decay as an arm is actually pulled.
+    const totalSelections = candidates.reduce((sum, c) => sum + c.row.retrieval_count, 0)
+    // Cold start: when nothing in the candidate set has ever been selected,
+    // there is no exploitation/exploration trade-off to compute — every arm is
+    // equally novel, so the UCB1 bonus is 0 (lnN = 0). The old code fell back
+    // to lnN = 1, which still injected an exploration bonus of
+    // explorationConstant * sqrt(1) on a totally cold set.
+    const lnN = totalSelections > 0 ? Math.log(totalSelections) : 0
 
     const scored = candidates.map((c, i) => {
       const base = zSim[i] * wSim + zQ[i] * wQ
-      const n = Math.max(c.row.q_visits, 1)
-      const ucbBonus = explorationConstant * Math.sqrt(lnN / n)
+      const n = Math.max(c.row.retrieval_count, 1)
+      const ucbBonus = totalSelections > 0 ? explorationConstant * Math.sqrt(lnN / n) : 0
       return { ...c, score: base + ucbBonus, qScalar: qScalars[i] }
     })
 
@@ -154,6 +172,7 @@ export namespace ExperienceRecall {
         qValue: item.qScalar,
         qValues: qv,
         qVisits: item.row.q_visits,
+        retrievalCount: item.row.retrieval_count,
         turnsRemaining: item.row.turns_remaining,
         score: item.score,
         script: contentRow?.script ?? null,

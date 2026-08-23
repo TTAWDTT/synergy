@@ -57,6 +57,20 @@ function defaultRecallMode(category: LibraryDB.Memory.Category): LibraryDB.Memor
   return "contextual"
 }
 
+// Insert a minimal experience row with an explicit q_visits, bypassing
+// LibraryDB.Experience.insert (which hard-codes q_visits = 0). Used to stage
+// pre-migration rows for the retrieval_count seeding test.
+function makeLegacyExperience(conn: Database, id: string, intent: string, qVisits: number) {
+  conn
+    .prepare(
+      `INSERT INTO experience (id, session_id, scope_id, intent, intent_embedding_model,
+       script_embedding_model, source_provider_id, source_model_id, reward, rewards, q_values, q_visits,
+       q_updated_at, q_history, retrieved_experience_ids, reward_status, retrieval_count, created_at, updated_at)
+      VALUES (?1, ?2, ?3, ?4, NULL, NULL, NULL, NULL, NULL, '{}', '{}', ?5, NULL, '[]', '[]', 'evaluated', 0, ?6, ?6)`,
+    )
+    .run(id, "sess-1", "scope-1", intent, qVisits, Date.now())
+}
+
 describe.serial("library migrations", () => {
   beforeEach(() => {
     LibraryDB.Experience.removeAll()
@@ -369,6 +383,42 @@ describe.serial("library migrations", () => {
 
       expect(hasColumn(conn, "memory", "recall_mode")).toBe(true)
       expect(hasIndex(conn, "idx_memory_recall_mode")).toBe(true)
+    })
+  })
+
+  describe("experience retrieval_count migration", () => {
+    test("adds the retrieval_count column idempotently", async () => {
+      const conn = LibraryDB.connection()
+      const migration = migrations.find((m) => m.id === "20260823-library-experience-retrieval-count")
+      expect(migration).toBeDefined()
+
+      await migration!.up(() => {})
+      await migration!.up(() => {})
+
+      expect(hasColumn(conn, "experience", "retrieval_count")).toBe(true)
+    })
+
+    test("seeds retrieval_count from q_visits for previously-rewarded experiences", async () => {
+      const conn = LibraryDB.connection()
+
+      // A rewarded experience carries q_visits > 0 from updateQValues; the
+      // migration should mirror that into retrieval_count so it does not read
+      // as never-selected post-migration.
+      makeLegacyExperience(conn, "exp-seed-qvisits", "Rewarded experience", 3)
+      // An unrewarded experience has q_visits = 0 and must stay at 0.
+      makeLegacyExperience(conn, "exp-cold", "Never rewarded", 0)
+
+      const migration = migrations.find((m) => m.id === "20260823-library-experience-retrieval-count")
+      await migration!.up(() => {})
+
+      const seeded = conn.prepare("SELECT id, retrieval_count FROM experience WHERE id IN (?, ?) ORDER BY id").all(
+        "exp-cold",
+        "exp-seed-qvisits",
+      ) as { id: string; retrieval_count: number }[]
+      expect(seeded).toEqual([
+        { id: "exp-cold", retrieval_count: 0 },
+        { id: "exp-seed-qvisits", retrieval_count: 3 },
+      ])
     })
   })
 })

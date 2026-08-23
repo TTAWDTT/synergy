@@ -355,5 +355,27 @@ export const migrations: Migration[] = [
       if (recovered > 0) log.info("recovered experience user input", { recovered })
     },
   },
+  {
+    id: "20260823-library-experience-retrieval-count",
+    description: "Add retrieval_count column to track UCB1 arm-pull selections distinct from q_visits",
+    async up(progress) {
+      const conn = LibraryDB.connection()
+      progress(0, 2)
+      if (!hasColumn(conn, "experience", "retrieval_count")) {
+        conn.exec("ALTER TABLE experience ADD COLUMN retrieval_count INTEGER NOT NULL DEFAULT 0")
+        log.info("added column", { table: "experience", column: "retrieval_count" })
+      }
+
+      progress(1, 2)
+      // Seed retrieval_count from q_visits so existing experiences that were
+      // rewarded (and thus selected at least once) start with a non-zero count.
+      // This avoids a post-migration cold start where every arm still reads as
+      // never-pulled. Freshly-encoded unrewarded experiences stay at 0, which is
+      // correct — they have genuinely never been selected by the new counter.
+      const seeded = conn.prepare("UPDATE experience SET retrieval_count = q_visits WHERE retrieval_count = 0 AND q_visits > 0").run()
+      progress(2, 2)
+      if (seeded.changes > 0) log.info("seeded retrieval_count from q_visits", { count: seeded.changes })
+    },
+  },
 ]
 MigrationRegistry.register("library", migrations)

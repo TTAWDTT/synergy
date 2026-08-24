@@ -4,10 +4,10 @@
   "id": "synergy",
   "light": {
     "seeds": {
-      "neutral": "#6B6B6B",
-      "primary": "#3B82F6",
-      "success": "#22C55E",
-      "warning": "#F59E0B",
+      "neutral": "#67676E",
+      "primary": "#2563EB",
+      "success": "#16A34A",
+      "warning": "#D97706",
       "error": "#EF4444",
       "info": "#3B82F6",
       "interactive": "#3B82F6",
@@ -115,12 +115,12 @@
   },
   "dark": {
     "seeds": {
-      "neutral": "#A0A0A0",
-      "primary": "#3B82F6",
-      "success": "#22C55E",
-      "warning": "#F59E0B",
+      "neutral": "#A7A6B0",
+      "primary": "#60A5FA",
+      "success": "#16A34A",
+      "warning": "#D97706",
       "error": "#EF4444",
-      "info": "#60A5FA",
+      "info": "#7DD3FC",
       "interactive": "#3B82F6",
       "diffAdd": "#22C55E",
       "diffDelete": "#EF4444",

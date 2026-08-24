@@ -13,6 +13,7 @@ export {
   hexToRgb,
   rgbToHex,
   hexToOklch,
+  hexToOklchCss,
   oklchToHex,
   rgbToOklch,
   oklchToRgb,

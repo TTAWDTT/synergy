@@ -67,7 +67,7 @@ describe("app boot shell", () => {
     expect(html).toContain('document.documentElement.setAttribute("data-synergy-color-scheme", mode)')
     expect(html).toContain('document.documentElement.setAttribute("data-color-scheme", mode)')
     expect(html).toContain('var isDark = scheme === "dark" || (scheme === "system" && systemDark)')
-    expect(html).toContain('localStorage.getItem("synergy-skin-cache-v1")')
+    expect(html).toContain('localStorage.getItem("synergy-skin-cache-v2")')
     expect(html).toContain("var fields = {")
     expect(html).toContain("hex.test(shell[field])")
     expect(html).toContain('document.getElementById("synergy-theme-color").setAttribute("content", shell.background)')

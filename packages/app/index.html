@@ -53,8 +53,8 @@
         document.documentElement.setAttribute("data-synergy-color-scheme", mode)
         document.documentElement.setAttribute("data-color-scheme", mode)
         try {
-          var snapshot = JSON.parse(localStorage.getItem("synergy-skin-cache-v1") || "null")
-          var shell = snapshot && snapshot.version === 1 && snapshot.shell && snapshot.shell[mode]
+          var snapshot = JSON.parse(localStorage.getItem("synergy-skin-cache-v2") || "null")
+          var shell = snapshot && snapshot.version === 2 && snapshot.shell && snapshot.shell[mode]
           var fields = {
             background: "--synergy-boot-bg",
             text: "--synergy-boot-text",
@@ -96,8 +96,8 @@
         --synergy-boot-text: #111827;
         --synergy-boot-control-color: #4b5563;
         --synergy-boot-control-hover-color: #151313;
-        --synergy-boot-control-hover-bg: #f7f7f7;
-        --synergy-boot-focus-ring: #888888;
+        --synergy-boot-control-hover-bg: #f6f7fe;
+        --synergy-boot-focus-ring: #87878f;
         --synergy-boot-critical-bg: #ffdfda;
         --synergy-boot-critical-text: #a8000c;
       }
@@ -107,8 +107,8 @@
         --synergy-boot-text: #f4f4f5;
         --synergy-boot-control-color: #c5c5cc;
         --synergy-boot-control-hover-color: #f6f3f3;
-        --synergy-boot-control-hover-bg: #080808;
-        --synergy-boot-focus-ring: #656565;
+        --synergy-boot-control-hover-bg: #08070d;
+        --synergy-boot-focus-ring: #65646d;
         --synergy-boot-critical-bg: #320c0b;
         --synergy-boot-critical-text: #ef4444;
       }
@@ -118,8 +118,8 @@
         --synergy-boot-text: #111827;
         --synergy-boot-control-color: #4b5563;
         --synergy-boot-control-hover-color: #151313;
-        --synergy-boot-control-hover-bg: #f7f7f7;
-        --synergy-boot-focus-ring: #888888;
+        --synergy-boot-control-hover-bg: #f6f7fe;
+        --synergy-boot-focus-ring: #87878f;
         --synergy-boot-critical-bg: #ffdfda;
         --synergy-boot-critical-text: #a8000c;
       }

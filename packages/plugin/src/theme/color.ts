@@ -107,6 +107,28 @@ export function oklchToHex(oklch: OklchColor): HexColor {
   return rgbToHex(r, g, b)
 }
 
+/**
+ * Format a hex color as a native CSS `oklch()` value so wide-gamut displays
+ * render the full chroma the resolver computed, rather than the gamut-mapped
+ * sRGB hex. Eight-digit (alpha) hexes become `oklch(L C H / A)`. The resolver
+ * keeps the in-memory `ResolvedTheme` as hex (opaque contract for JS consumers
+ * like charts and the desktop shell skin); only the CSS string formatter calls
+ * this, so `resolveThemeColor` is unaffected.
+ */
+export function hexToOklchCss(hex: HexColor): string {
+  const alpha = hexAlpha(hex)
+  // hexToRgb ignores any 8-digit alpha channel when reading RGB, so this
+  // yields the oklch of the underlying color; alpha is re-applied as the
+  // CSS `oklch(L C H / A)` fourth component.
+  const { l, c, h } = hexToOklch(hex)
+  const rounded = (value: number, places = 4) => {
+    const factor = 10 ** places
+    return Math.round(value * factor) / factor
+  }
+  const core = `oklch(${rounded(l)} ${rounded(c)} ${rounded(h)}`
+  return alpha === 1 ? `${core})` : `${core} / ${rounded(alpha)})`
+}
+
 function relativeLuminance(color: { r: number; g: number; b: number }): number {
   const channels = [color.r, color.g, color.b].map((channel) =>
     channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,

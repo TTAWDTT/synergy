@@ -1,4 +1,4 @@
-import type { ColorValue, Theme, HexColor, ResolvedTheme, ThemeToken, ThemeVariant } from "./types.js"
+import type { ColorValue, CssVarRef, Theme, HexColor, ResolvedTheme, ThemeToken, ThemeVariant } from "./types.js"
 import {
   contrastRatio,
   darken,
@@ -6,6 +6,7 @@ import {
   generateNeutralScale,
   generateScale,
   hexToOklch,
+  hexToOklchCss,
   lighten,
   oklchToHex,
   withAlpha,
@@ -519,6 +520,14 @@ export function resolveTheme(theme: Theme): { light: ResolvedTheme; dark: Resolv
 
 export function themeToCss(tokens: ResolvedTheme): string {
   return Object.entries(tokens)
-    .map(([key, value]) => `--${key}: ${value};`)
+    .map(([key, value]) => {
+      // CSS var() references pass through verbatim; hex colors are emitted as
+      // native oklch() so wide-gamut displays render the resolver's full chroma
+      // instead of the gamut-mapped sRGB hex. The in-memory ResolvedTheme stays
+      // hex (the contract JS consumers like charts and the desktop shell skin
+      // read via resolveThemeColor), so only the CSS string changes here.
+      const cssValue = value.startsWith("var(") ? (value as CssVarRef) : hexToOklchCss(value as HexColor)
+      return `--${key}: ${cssValue};`
+    })
     .join("\n  ")
 }

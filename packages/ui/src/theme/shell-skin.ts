@@ -2,7 +2,7 @@ import z from "zod"
 import { resolveTheme, resolveThemeColor, type HexColor, type Theme } from "@ericsanchezok/synergy-plugin/theme"
 import { ThemeSchema, parseTheme } from "./schema"
 
-export const SKIN_BOOTSTRAP_STORAGE_KEY = "synergy-skin-cache-v1"
+export const SKIN_BOOTSTRAP_STORAGE_KEY = "synergy-skin-cache-v2"
 
 const HexColorSchema = z.string().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/)
 
@@ -37,7 +37,7 @@ export type ShellSkinSnapshot = z.infer<typeof ShellSkinSnapshotSchema>
 
 export const SkinBootstrapSnapshotSchema = z
   .object({
-    version: z.literal(1),
+    version: z.literal(2),
     themeId: z.string().min(1),
     theme: ThemeSchema,
     shell: ShellSkinSnapshotSchema,
@@ -45,7 +45,7 @@ export const SkinBootstrapSnapshotSchema = z
   .strict()
 
 export interface SkinBootstrapSnapshot {
-  version: 1
+  version: 2
   themeId: string
   theme: Theme
   shell: ShellSkinSnapshot
@@ -78,7 +78,7 @@ export function deriveShellSkin(theme: Theme): ShellSkinSnapshot {
 export function createSkinBootstrapSnapshot(themeId: string, theme: Theme): SkinBootstrapSnapshot {
   const validatedTheme = parseTheme(theme)
   return {
-    version: 1,
+    version: 2,
     themeId,
     theme: validatedTheme,
     shell: deriveShellSkin(validatedTheme),

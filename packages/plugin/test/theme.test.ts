@@ -188,8 +188,11 @@ describe("resolveTheme", () => {
   test("themeToCss renders one custom property per token", () => {
     const { light } = resolveTheme(fixtureTheme())
     const css = themeToCss(light)
-    expect(css).toContain("--background-base: #")
-    expect(css).toContain("--chart-series-9: #")
+    // Hex colors are emitted as native oklch() so wide-gamut displays render
+    // the resolver's full chroma; var() references pass through verbatim.
+    expect(css).toContain("--background-base: oklch(")
+    expect(css).toContain("--chart-series-9: oklch(")
+    expect(css).toContain("--syntax-comment: var(--text-weak);")
     expect(css.split("\n")).toHaveLength(THEME_TOKEN_NAMES.length)
   })
 })

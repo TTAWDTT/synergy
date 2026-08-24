@@ -1,6 +1,8 @@
 import { describe, test, expect } from "bun:test"
-import { resolveTheme } from "../src/theme/resolve"
+import { resolveTheme, resolveThemeColor } from "../src/theme/resolve"
+import { hexToOklchCss } from "../src/theme/color"
 import { synergyTheme } from "../src/theme/default-themes"
+import type { ThemeTokenName } from "../src/theme/tokens"
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -61,6 +63,17 @@ function extractCustomPropValue(css: string, token: string): string | undefined 
 
 function expectCustomPropValue(css: string, token: string, expected: string) {
   expect(extractCustomPropValue(css, token)?.toLowerCase()).toBe(expected.toLowerCase())
+}
+
+/**
+ * The fallback CSS emits native oklch() (not hex), so surface assertions are
+ * derived from the resolver's hex via the same formatter the generator uses.
+ * This keeps the "fallback matches the resolver" invariant without pinning
+ * oklch rounding by hand.
+ */
+function expectResolvedTokenValue(css: string, mode: "light" | "dark", token: ThemeTokenName) {
+  const resolved = resolveTheme(synergyTheme)[mode]
+  expectCustomPropValue(css, token, hexToOklchCss(resolveThemeColor(resolved, token)))
 }
 
 function extractLightFallbackBlock(css: string): string {
@@ -323,21 +336,21 @@ describe("Visual Token Contract", () => {
   describe("1b. Static theme fallback preserves neutral workbench surfaces", () => {
     test("light fallback keeps raised surfaces brighter than the canvas", async () => {
       const css = extractLightFallbackBlock(await readThemeCss())
-      expectCustomPropValue(css, "background-stronger", "#FAFAFA")
-      expectCustomPropValue(css, "surface-raised-base", "#FFFFFF")
-      expectCustomPropValue(css, "surface-raised-strong", "#FFFFFF")
-      expectCustomPropValue(css, "surface-raised-stronger", "#FFFFFF")
-      expectCustomPropValue(css, "surface-raised-stronger-non-alpha", "#FFFFFF")
-      expectCustomPropValue(css, "surface-inset-base", "#F4F4F5")
+      expectResolvedTokenValue(css, "light", "background-stronger")
+      expectResolvedTokenValue(css, "light", "surface-raised-base")
+      expectResolvedTokenValue(css, "light", "surface-raised-strong")
+      expectResolvedTokenValue(css, "light", "surface-raised-stronger")
+      expectResolvedTokenValue(css, "light", "surface-raised-stronger-non-alpha")
+      expectResolvedTokenValue(css, "light", "surface-inset-base")
     })
 
     test("dark fallback makes raised content brighter than the canvas", async () => {
       const css = extractDarkFallbackBlock(await readThemeCss())
-      expectCustomPropValue(css, "background-stronger", "#0F0F10")
-      expectCustomPropValue(css, "surface-raised-base", "#1B1B1D")
-      expectCustomPropValue(css, "surface-raised-strong", "#222326")
-      expectCustomPropValue(css, "surface-raised-stronger", "#2A2B2F")
-      expectCustomPropValue(css, "surface-raised-stronger-non-alpha", "#2A2B2F")
+      expectResolvedTokenValue(css, "dark", "background-stronger")
+      expectResolvedTokenValue(css, "dark", "surface-raised-base")
+      expectResolvedTokenValue(css, "dark", "surface-raised-strong")
+      expectResolvedTokenValue(css, "dark", "surface-raised-stronger")
+      expectResolvedTokenValue(css, "dark", "surface-raised-stronger-non-alpha")
     })
   })
 
